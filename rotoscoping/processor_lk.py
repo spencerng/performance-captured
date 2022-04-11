@@ -1,18 +1,16 @@
-
 import numpy as np
 import cv2 as cv
 import json
 import argparse
 from util import maybeOutput
 
-lk_params = dict( winSize  = (15, 15),
-                  maxLevel = 2,
-                  criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03))
+lk_params = dict(
+    winSize=(15, 15),
+    maxLevel=2,
+    criteria=(cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03),
+)
 
-feature_params = dict( maxCorners = 5000,
-                       qualityLevel = 0.1,
-                       minDistance = 7,
-                       blockSize = 7 )
+feature_params = dict(maxCorners=5000, qualityLevel=0.1, minDistance=7, blockSize=7)
 
 
 flow = None
@@ -25,7 +23,7 @@ detect_interval = 1
 track_len = 100
 
 frame_idx = 0
-n=0
+n = 0
 
 ID = 0
 
@@ -34,9 +32,9 @@ def handleFrame(frame):
     global prev_frame_gray, flow, X, Y, frame_idx, tracks, n, ID
 
     frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    if (prev_frame_gray is None):
+    if prev_frame_gray is None:
         prev_frame_gray = frame_gray.copy()
-        
+
     vis = frame.copy()
 
     if len(tracks) > 0:
@@ -44,7 +42,7 @@ def handleFrame(frame):
         p0 = np.float32([tr[-1] for tr in tracks]).reshape(-1, 1, 2)
         p1, _st, _err = cv.calcOpticalFlowPyrLK(img0, img1, p0, None, **lk_params)
         p0r, _st, _err = cv.calcOpticalFlowPyrLK(img1, img0, p1, None, **lk_params)
-        d = abs(p0-p0r).reshape(-1, 2).max(-1)
+        d = abs(p0 - p0r).reshape(-1, 2).max(-1)
         good = d < 1
         new_tracks = []
         for tr, (x, y), good_flag in zip(tracks, p1.reshape(-1, 2), good):
@@ -63,21 +61,19 @@ def handleFrame(frame):
         mask[:] = 255
         for x, y in [np.int32(tr[-1]) for tr in tracks]:
             cv.circle(mask, (x, y), 5, 0, -1)
-        p = cv.goodFeaturesToTrack(frame_gray, mask = mask, **feature_params)
+        p = cv.goodFeaturesToTrack(frame_gray, mask=mask, **feature_params)
         if p is not None:
             for x, y in np.float32(p).reshape(-1, 2):
-                tracks.append( [(x.item(), y.item())] )
-
+                tracks.append([(x.item(), y.item())])
 
     frame_idx += 1
     prev_frame_gray = frame_gray
-    if (not arguments.hide):
-         cv.imshow('lk_track', vis)
+    if not arguments.hide:
+        cv.imshow("lk_track", vis)
 
     maybeOutput("lk_track", vis, frame_idx)
 
-
-    t2 = [[[z[0]/frame.shape[1], z[1]/frame.shape[0]] for z in y] for y in tracks]
+    t2 = [[[z[0] / frame.shape[1], z[1] / frame.shape[0]] for z in y] for y in tracks]
     out = dict(frame=n, tracks=t2)
     # print(tracks)
 
