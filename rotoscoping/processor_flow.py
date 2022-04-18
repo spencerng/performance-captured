@@ -20,8 +20,8 @@ optic_flow.setUseSpatialPropagation(True)
 n = 0
 
 
-def handleFrame(frame):
-    global prev_frame_gray, flow, X, Y, n
+def handleFrame(frame, n):
+    global prev_frame_gray, flow, X, Y
 
     frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 

@@ -21,8 +21,8 @@ def chunker(seq, size):
     return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
 
-def handleFrame(frame):
-    global X, Y, n
+def handleFrame(frame, n):
+    global X, Y
 
     if X is None:
         height = frame.shape[0]

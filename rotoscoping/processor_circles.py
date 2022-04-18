@@ -8,8 +8,7 @@ arguments = {}
 n = 0
 
 
-def handleFrame(frame):
-    global n
+def handleFrame(frame, n):
 
     img = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     img = cv.medianBlur(img, 5)

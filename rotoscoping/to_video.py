@@ -13,7 +13,7 @@ parser.add_argument("--output", default="out.mp4", help="output file")
 args = parser.parse_args()
 
 img_array = []
-for filename in sorted(glob.glob(f"{args.input}/*.jpg")):
+for filename in sorted(glob.glob(f"{args.input}/*.png")):
     img = cv2.imread(filename)
     height, width, layers = img.shape
     size = (width, height)

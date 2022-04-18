@@ -28,8 +28,8 @@ n = 0
 ID = 0
 
 
-def handleFrame(frame):
-    global prev_frame_gray, flow, X, Y, frame_idx, tracks, n, ID
+def handleFrame(frame, n):
+    global prev_frame_gray, flow, X, Y, frame_idx, tracks, ID
 
     frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     if prev_frame_gray is None:

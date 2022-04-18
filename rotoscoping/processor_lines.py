@@ -9,8 +9,7 @@ arguments = {}
 n = 0
 
 
-def handleFrame(frame):
-    global n
+def handleFrame(frame, n):
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     lines = lsd(gray)
     # lines = lsd.detect(gray, 2, 1)

@@ -3,8 +3,10 @@ import cv2 as cv
 from cv2 import VideoCapture
 import json
 import argparse
+import os
 import util
 from util import maybeOutput
+import gc
 
 parser = argparse.ArgumentParser(
     description="Process a video or a webcam input and extract motion and foreground statistics"
@@ -55,6 +57,13 @@ parser.add_argument(
     action="store_true",
 )
 parser.add_argument(
+    "--start_frame",
+    dest="start_frame",
+    help="frame to start on",
+    default=0,
+    type=int
+)
+parser.add_argument(
     "--shrink",
     type=float,
     dest="shrink",
@@ -101,42 +110,56 @@ if args.do_tracks:
     processor_lk.arguments = args
 
 
-n = 0
-try:
-    while True:
-        ret, frame = cam.read()
+n = args.start_frame
+for _ in range(args.start_frame):
+    cam.read()
 
-        if not (frame is None):
-            frame = cv.resize(
-                src=frame,
-                dsize=None,
-                fx=args.shrink,
-                fy=args.shrink,
-                interpolation=cv.INTER_AREA,
-            )
-            maybeOutput("input", frame, n)
+file_num = args.start_frame // 500
 
-            out = {}
-            if args.do_flow:
-                out.update(processor_flow.handleFrame(frame))
-            if args.do_background:
-                out.update(processor_bg.handleFrame(frame))
-            if args.do_lines:
-                out.update(processor_lines.handleFrame(frame))
-            if args.do_circles:
-                out.update(processor_circles.handleFrame(frame))
-            if args.do_tracks:
-                out.update(processor_lk.handleFrame(frame))
+outputs = list()
+while True:
+    ret, frame = cam.read()
 
-            out.update(dict(frame=n, width=frame.shape[1], height=frame.shape[0]))
+    if not (frame is None):
+        frame = cv.resize(
+            src=frame,
+            dsize=None,
+            fx=args.shrink,
+            fy=args.shrink,
+            interpolation=cv.INTER_AREA,
+        )
+        maybeOutput("input", frame, n)
 
-            cv.waitKey(1)
+        out = {}
+        if args.do_flow:
+            out.update(processor_flow.handleFrame(frame, n))
+        if args.do_background:
+            out.update(processor_bg.handleFrame(frame, n))
+        if args.do_lines:
+            out.update(processor_lines.handleFrame(frame, n))
+        if args.do_circles:
+            out.update(processor_circles.handleFrame(frame, n))
+        if args.do_tracks:
+            out.update(processor_lk.handleFrame(frame, n))
 
-            print(json.dumps(out).replace("NaN", "0.0"), flush=True)
+        out.update(dict(frame=n, width=frame.shape[1], height=frame.shape[0]))
 
-            n += 1
+        cv.waitKey(1)
 
-        if not ret:
-            break
-except KeyboardInterrupt:
-    pass
+        outputs.append(out)
+
+        n += 1
+
+        if n != 0 and n % 500 == 0:
+
+            with open(f"{args.output_directory}/data-no-lines-{file_num}.json", "w+") as out_file:
+                out_file.write(json.dumps(outputs).replace("NaN", "0.0"))
+            file_num += 1
+            gc.collect()
+            outputs.clear()
+
+    if not ret:
+        break
+with open(f"{args.output_directory}/data-no-lines-{file_num}.json", "w+") as out_file:
+    out_file.write(json.dumps(outputs).replace("NaN", "0.0"))
+
