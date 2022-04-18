@@ -10,9 +10,9 @@ int colorIdx = 0;
 void setup() {
   size(1920, 1080);
   frameNum = 0;
-  
+
   danceTraces = new JSONArray[9];
- 
+
   for (int i = 0; i < danceTraces.length; i++) {
     danceTraces[i] = loadJSONArray("data-no-lines-" + i + ".json");
   }
@@ -20,7 +20,6 @@ void setup() {
   colors = new color[] { #E80606, #F1d639, #E88b1a };
   file = new SoundFile(this, "dance-audio.mp3");
   file.play();
-  
 }
 
 void draw() {
@@ -29,46 +28,42 @@ void draw() {
   background(frameColor);
   strokeWeight(3);
   stroke(lerpColor(frameColor, #000000, 0.5));
-  
+
   JSONArray contours = frameInfo.getJSONArray("contours");
-  
-  
+
+
   for (int i = 0; i < contours.size(); i++) {
     color newColor = lerpColor(frameColor, #ffffff, random(0.2, 0.4));
     fill(newColor);
-    
+
     JSONArray contourSet = contours.getJSONArray(i);
     beginShape();
     for (int j = 0; j < contourSet.size(); j++) {
       JSONArray line = contourSet.getJSONArray(j);
-      vertex(line.getFloat(0) * width, line.getFloat(1) * height);  
-      
+      vertex(line.getFloat(0) * width, line.getFloat(1) * height);
     }
-    endShape(CLOSE);  
+    endShape(CLOSE);
     beginShape();
     for (int j = 0; j < contourSet.size(); j++) {
       JSONArray line = contourSet.getJSONArray(j);
-      vertex(line.getFloat(0) * width + 120, line.getFloat(1) * height + 100);  
-      
+      vertex(line.getFloat(0) * width + 120, line.getFloat(1) * height + 100);
     }
-    endShape(CLOSE);  
+    endShape(CLOSE);
     beginShape();
     for (int j = 0; j < contourSet.size(); j++) {
       JSONArray line = contourSet.getJSONArray(j);
-      vertex(line.getFloat(0) * width - 100, line.getFloat(1) * height + 80);  
-      
+      vertex(line.getFloat(0) * width - 100, line.getFloat(1) * height + 80);
     }
-    endShape(CLOSE);  
+    endShape(CLOSE);
   }
-  
+
   if ((frameNum - 68) % 44 == 0) {
-   colorIdx += 1; 
+    colorIdx += 1;
   }
-  
+  saveFrame("output/####.png");
   if (frameNum == (danceTraces.length - 1) * BUFFER_SIZE + danceTraces[danceTraces.length - 1].size() - 1) {
-    break;
+    exit();
     frameNum = -1;
   }
   frameNum++;
-  saveFrame("output/####.png");
 }
