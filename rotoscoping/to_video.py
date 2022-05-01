@@ -21,7 +21,7 @@ for filename in sorted(glob.glob(f"{args.input}/*.png")):
 
 
 out = cv2.VideoWriter(
-    args.output, cv2.VideoWriter_fourcc(*'avc1'), args.framerate, size
+    args.output, cv2.VideoWriter_fourcc(*"avc1"), args.framerate, size
 )
 
 for i in range(len(img_array)):

@@ -20,7 +20,7 @@ arguments = {}
 tracks = []
 
 detect_interval = 1
-track_len = 100
+track_len = 20
 
 frame_idx = 0
 n = 0
@@ -52,15 +52,15 @@ def handleFrame(frame, n):
             if len(tr) > track_len:
                 del tr[0]
             new_tracks.append(tr)
-            cv.circle(vis, (x, y), 2, (0, 255, 0), -1)
+            cv.circle(vis, (int(x), int(y)), 2, (0, 255, 0), -1)
         tracks = new_tracks
         cv.polylines(vis, [np.int32(tr) for tr in tracks], False, (0, 255, 0))
 
-    if frame_idx % detect_interval == 0:
+    if frame_idx % detect_interval == 0 and len(tracks) < 100:
         mask = np.zeros_like(frame_gray)
         mask[:] = 255
         for x, y in [np.int32(tr[-1]) for tr in tracks]:
-            cv.circle(mask, (x, y), 5, 0, -1)
+            cv.circle(mask, (int(x), int(y)), 5, 0, -1)
         p = cv.goodFeaturesToTrack(frame_gray, mask=mask, **feature_params)
         if p is not None:
             for x, y in np.float32(p).reshape(-1, 2):

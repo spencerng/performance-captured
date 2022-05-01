@@ -18,6 +18,15 @@ parser.add_argument(
     help="the name of the video file, if this is missing then we'll try to open a webcam instead",
 )
 parser.add_argument(
+    "--background_type",
+    dest="background_type",
+    help="select background subtraction algorithm",
+    default="createBackgroundSubtractorGMG",
+)
+parser.add_argument(
+    "--do_lumakey", dest="do_luma", help="do basic luma key", action="store_true"
+)
+parser.add_argument(
     "--do_flow", dest="do_flow", help="compute optic flow?", action="store_true"
 )
 parser.add_argument(
@@ -57,11 +66,21 @@ parser.add_argument(
     action="store_true",
 )
 parser.add_argument(
-    "--start_frame",
-    dest="start_frame",
-    help="frame to start on",
-    default=0,
-    type=int
+    "--area_threshold",
+    type=float,
+    dest="area_threshold",
+    help="if we are computing contours then filter out areas smaller than this",
+    default=0.0,
+)
+parser.add_argument(
+    "--luma_threshold",
+    type=float,
+    dest="luma_threshold",
+    help="if we are doing luma background subtraction then the foreground is darker than this",
+    default=128,
+)
+parser.add_argument(
+    "--start_frame", dest="start_frame", help="frame to start on", default=0, type=int
 )
 parser.add_argument(
     "--shrink",
@@ -109,6 +128,11 @@ if args.do_tracks:
 
     processor_lk.arguments = args
 
+if args.do_luma:
+    import processor_doLuma
+
+    processor_doLuma.arguments = args
+
 
 n = args.start_frame
 for _ in range(args.start_frame):
@@ -141,6 +165,8 @@ while True:
             out.update(processor_circles.handleFrame(frame, n))
         if args.do_tracks:
             out.update(processor_lk.handleFrame(frame, n))
+        if args.do_luma:
+            out.update(processor_doLuma.handleFrame(frame))
 
         out.update(dict(frame=n, width=frame.shape[1], height=frame.shape[0]))
 
@@ -151,8 +177,9 @@ while True:
         n += 1
 
         if n != 0 and n % 500 == 0:
-
-            with open(f"{args.output_directory}/data-no-lines-{file_num}.json", "w+") as out_file:
+            with open(
+                f"{args.output_directory}/data-no-lines-{file_num}.json", "w+"
+            ) as out_file:
                 out_file.write(json.dumps(outputs).replace("NaN", "0.0"))
             file_num += 1
             gc.collect()
@@ -162,4 +189,3 @@ while True:
         break
 with open(f"{args.output_directory}/data-no-lines-{file_num}.json", "w+") as out_file:
     out_file.write(json.dumps(outputs).replace("NaN", "0.0"))
-
