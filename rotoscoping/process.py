@@ -94,6 +94,7 @@ args = parser.parse_args()
 
 
 c = args.video
+
 try:
     c = int(c)
 except:
@@ -172,20 +173,25 @@ while True:
 
         cv.waitKey(1)
 
-        outputs.append(out)
 
         n += 1
 
-        if n != 0 and n % 500 == 0:
-            with open(
-                f"{args.output_directory}/data-no-lines-{file_num}.json", "w+"
-            ) as out_file:
-                out_file.write(json.dumps(outputs).replace("NaN", "0.0"))
-            file_num += 1
-            gc.collect()
-            outputs.clear()
+        if args.video:
+            outputs.append(out)
+            if n != 0 and n % 500 == 0:
+                with open(
+                    f"{args.output_directory}/data-no-lines-{file_num}.json", "w+"
+                ) as out_file:
+                    out_file.write(json.dumps(outputs).replace("NaN", "0.0"))
+                file_num += 1
+                gc.collect()
+                outputs.clear()
+        else:
+            print(out)
 
     if not ret:
         break
-with open(f"{args.output_directory}/data-no-lines-{file_num}.json", "w+") as out_file:
-    out_file.write(json.dumps(outputs).replace("NaN", "0.0"))
+
+if args.video:
+    with open(f"{args.output_directory}/data-{file_num}.json", "w+") as out_file:
+        out_file.write(json.dumps(outputs).replace("NaN", "0.0"))
