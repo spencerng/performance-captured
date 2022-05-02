@@ -1,6 +1,6 @@
 # performance-captured
 
-Processing sketches and Python pipelines for remixing captured performance from video or webcam feeds into new audio/video. Rotoscoping code [adapted from Marc Downie](https://openendedgroup.com/field2/pythonhead.html).
+Processing sketches and Python pipelines for remixing captured performance from video or webcam feeds into new audio/video. Rotoscoping code [adapted from Marc Downie](http://openendedgroup.com/field2/pythonhead.html).
 
 ## Music and Motion Pipeline
 
