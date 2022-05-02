@@ -173,7 +173,6 @@ while True:
 
         cv.waitKey(1)
 
-
         n += 1
 
         if args.video:
