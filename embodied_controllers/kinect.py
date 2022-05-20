@@ -5,6 +5,9 @@ import pyk4a
 
 from pyk4a import Config, PyK4A
 
+MIN_DIST = 1
+MAX_DIST = 300 * 9
+
 
 def colorize(
     image: np.ndarray,
@@ -43,19 +46,38 @@ class KinectCam:
         color_img = capture.color
 
         # Based in mm of depth camera
-        mask = cv2.inRange(capture.transformed_depth, 1, 1000)
+        mask = cv2.inRange(capture.transformed_depth, MIN_DIST, MAX_DIST)
 
-        n_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
-            mask, 12, cv2.CV_32S
-        )
-        # mask_inv = mask
-        # mask_inv[mask_inv == 255] = 10
-        # mask_inv[mask_inv == 0] = 255
-        # mask_inv[mask_inv == 10] = 0
+        kernel = np.ones((5, 5), np.uint8)
+        mask = cv2.erode(mask, kernel)
+
         masked_img = cv2.bitwise_and(color_img, color_img, mask=mask)
 
+        # n_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+        #     mask, 12, cv2.CV_32S
+        # )
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+        centroids = []
+        if len(contours) != 0:
+            max_area = cv2.contourArea(contours[0])
+            max_contour = contours[0]
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if area > max_area:
+                    max_area = area
+                    max_contour = contour
+
+            x, y, w, h = cv2.boundingRect(contour)
+            centroids = [(x + w / 2, y + h / 2)]
+
+            if max_area < 40000:
+                centroids = []
+
+        mask_img = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
+
         return masked_img[:, :, :3], centroids
-        # return colorize(capture.depth, (None, 5000), cv2.COLORMAP_HSV)
 
     def close(self):
         self.cam.stop()
