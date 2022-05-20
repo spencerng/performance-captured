@@ -60,6 +60,8 @@ class KinectCam:
         contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
         centroids = []
+        max_contour = None
+
         if len(contours) != 0:
             max_area = cv2.contourArea(contours[0])
             max_contour = contours[0]
@@ -74,10 +76,14 @@ class KinectCam:
 
             if max_area < 40000:
                 centroids = []
+                max_contour = None
 
         mask_img = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
 
-        return masked_img[:, :, :3], centroids
+        if max_contour is not None:
+            max_contour = np.vstack(max_contour).squeeze()
+
+        return masked_img[:, :, :3], centroids, max_contour
 
     def close(self):
         self.cam.stop()

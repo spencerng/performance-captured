@@ -11,11 +11,12 @@ def cvimage_to_pygame(image):
     return pg.image.frombuffer(image.tostring(), image.shape[1::-1], "BGR")
 
 
-X_WINDOW = 175
+X_WINDOW = 160
 X_LEFT_THRESH = 1920 / 2 - X_WINDOW
 X_RIGHT_THRESH = 1920 / 2 + X_WINDOW
 WINDOW_SIZE = 5
 
+# Threshold in pixels for one keypress of jumping
 JUMP_THRESH = 50
 
 
@@ -58,6 +59,9 @@ class Controller:
         else:
             keyboard.release("x")
 
+        return self.side_button_press, self.a_state
+
+
 
 def main():
     pg.display.init()
@@ -81,7 +85,7 @@ def main():
         frame_info = cam.get_frame()
 
         if frame_info is not None:
-            cv_img, centroids = frame_info
+            cv_img, centroids, player_contour = frame_info
             screen.blit(cvimage_to_pygame(cv_img), (0, 0))
 
             pg.draw.line(screen, (0, 255, 0), (X_LEFT_THRESH, 0), (X_LEFT_THRESH, 1080))
@@ -106,9 +110,20 @@ def main():
                 pg.draw.circle(screen, (255, 0, 0), (x_med, y_med), 30)
                 controller.process_input(x_med, y_med)
 
+                _, jumping = controller.press_buttons()
+
+                right_color = pg.Color(0, 227, 23)
+                left_color = pg.Color(227, 0, 42)
+                right_percent = max(0, min(1, (x_med - X_LEFT_THRESH) / (X_WINDOW * 2)))
+
+                player_color = left_color.lerp(right_color, right_percent)
+                player_color.a = 255 if jumping else 50
+
+            if player_contour is not None:
+                pg.draw.polygon(screen, player_color, player_contour)
+
             pg.display.update()
 
-        controller.press_buttons()
         # Limit FPS
         clock.tick(30)
 
