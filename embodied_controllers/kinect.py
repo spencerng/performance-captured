@@ -8,7 +8,6 @@ from pyk4a import Config, PyK4A
 MIN_DIST = 1
 MAX_DIST = 300 * 9
 
-
 def colorize(
     image: np.ndarray,
     clipping_range=(None, None),
@@ -27,9 +26,9 @@ class KinectCam:
     def __init__(self):
         k4a = PyK4A(
             Config(
-                color_resolution=pyk4a.ColorResolution.RES_1080P,
+                color_resolution=pyk4a.ColorResolution.OFF,
                 camera_fps=pyk4a.FPS.FPS_30,
-                depth_mode=pyk4a.DepthMode.NFOV_UNBINNED,
+                depth_mode=pyk4a.DepthMode.WFOV_UNBINNED,
                 synchronized_images_only=False,
             )
         )
@@ -71,10 +70,11 @@ class KinectCam:
                     max_area = area
                     max_contour = contour
 
-            x, y, w, h = cv2.boundingRect(contour)
-            centroids = [(x + w / 2, y + h / 2)]
+            # Extrapolate center of contour
+            m = cv2.moments(max_contour)
+            centroids = [(int(m["m10"] / m["m00"]), int(m["m01"] / m["m00"]))]
 
-            if max_area < 40000:
+            if max_area < 20000:
                 centroids = []
                 max_contour = None
 

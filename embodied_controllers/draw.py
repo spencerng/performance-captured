@@ -6,28 +6,46 @@ import keyboard
 from kinect import KinectCam
 
 # Remember to run with sudo
+
+SCALE = 1/1.5
+
+RES = list(map(int, (1920 * SCALE, 1080 * SCALE)))
+
+X_WINDOW = 160 * SCALE
+X_LEFT_THRESH = (1920 / 2 - X_WINDOW) * SCALE
+X_RIGHT_THRESH = (1920 / 2 + X_WINDOW) * SCALE
+WINDOW_SIZE = 5
+
+# Minimum centroid position for a crouch position
+CROUCH_Y_THRESH = 800 * SCALE
+
+# Threshold in pixels for one keypress of jumping
+JUMP_THRESH = 100 * SCALE
+JUMP_KEY = "z" # x for other game
+
+
 def cvimage_to_pygame(image):
     """Convert cvimage into a pygame image"""
     return pg.image.frombuffer(image.tostring(), image.shape[1::-1], "BGR")
 
 
-X_WINDOW = 160
-X_LEFT_THRESH = 1920 / 2 - X_WINDOW
-X_RIGHT_THRESH = 1920 / 2 + X_WINDOW
-WINDOW_SIZE = 5
-
-# Threshold in pixels for one keypress of jumping
-JUMP_THRESH = 50
-
-
 class Controller:
     def __init__(self):
         self.side_button_press = None
+        self.down_held = False
         self.a_state = False
         self.prev_y = None
         self.jump_count = 0
 
     def process_input(self, x_pos, y_pos):
+        if y_pos > CROUCH_Y_THRESH:
+            self.down_held = True
+            self.side_button_press = None
+            self.a_state = False
+            return
+
+        self.down_held = False
+
         if x_pos > X_RIGHT_THRESH:
             self.side_button_press = "RIGHT"
         elif x_pos < X_LEFT_THRESH:
@@ -46,6 +64,11 @@ class Controller:
         self.prev_y = y_pos
 
     def press_buttons(self):
+        if self.down_held:
+            keyboard.press("down")
+        else:
+            keyboard.release("down")
+
         if self.side_button_press == "RIGHT":
             keyboard.press("right")
         elif self.side_button_press == "LEFT":
@@ -55,9 +78,9 @@ class Controller:
             keyboard.release("right")
 
         if self.a_state and self.jump_count < 20:
-            keyboard.press("x")
+            keyboard.press(JUMP_KEY)
         else:
-            keyboard.release("x")
+            keyboard.release(JUMP_KEY)
 
         return self.side_button_press, self.a_state
 
@@ -66,13 +89,14 @@ class Controller:
 def main():
     pg.display.init()
     pg.font.init()
-    screen = pg.display.set_mode((1920, 1080))
+    screen = pg.display.set_mode(RES)
     clock = pg.time.Clock()
     cam = KinectCam()
 
     controller = Controller()
 
     running = True
+    started = False
     t = 0
 
     centroid_window = list()
@@ -84,7 +108,19 @@ def main():
 
         frame_info = cam.get_frame()
 
+        if not started:
+            # Draw starting screen here
+            pass
+
+
         if frame_info is not None:
+            if not started:
+                started = True
+                # TODO: Launch command here
+                cmd = "zsnes -zs 0 ~/Downloads/Super\\ Mario\\ All-Stars\\ \\(USA\\).sfc"
+
+
+
             cv_img, centroids, player_contour = frame_info
             screen.blit(cvimage_to_pygame(cv_img), (0, 0))
 
@@ -107,7 +143,6 @@ def main():
                 x_med = statistics.median(map(lambda x: x[0], centroid_window))
                 y_med = statistics.median(map(lambda x: x[1], centroid_window))
 
-                pg.draw.circle(screen, (255, 0, 0), (x_med, y_med), 30)
                 controller.process_input(x_med, y_med)
 
                 _, jumping = controller.press_buttons()
@@ -117,10 +152,13 @@ def main():
                 right_percent = max(0, min(1, (x_med - X_LEFT_THRESH) / (X_WINDOW * 2)))
 
                 player_color = left_color.lerp(right_color, right_percent)
+
+
                 player_color.a = 255 if jumping else 50
 
             if player_contour is not None:
                 pg.draw.polygon(screen, player_color, player_contour)
+                pg.draw.circle(screen, (255, 0, 0), (x_med, y_med), 30)
 
             pg.display.update()
 
