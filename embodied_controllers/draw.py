@@ -11,7 +11,7 @@ from kinect import KinectCam
 
 # Remember to run with sudo
 
-SCALE = 1/1.5
+SCALE = 1 / 1.5
 
 RES = list(map(int, (1920 * SCALE, 1080 * SCALE)))
 
@@ -25,7 +25,7 @@ CROUCH_Y_THRESH = 800 * SCALE
 
 # Threshold in pixels for one keypress of jumping
 JUMP_THRESH = 20 * SCALE
-JUMP_KEY = "x" # z for other game
+JUMP_KEY = "x"  # z for other game
 
 
 def cvimage_to_pygame(image):
@@ -88,6 +88,15 @@ class Controller:
 
         return self.side_button_press, self.a_state
 
+    def clear_inputs(self):
+        self.side_button_press = None
+        self.a_state = False
+
+        keyboard.release("left")
+        keyboard.release("right")
+        keyboard.release(JUMP_KEY)
+
+
 class Emulator:
     def __init__(self):
         self.process = None
@@ -100,23 +109,16 @@ class Emulator:
         thread = Thread(target=target)
         thread.start()
 
-        # thread.join()
-        # if thread.is_alive():
-        #     self.process.terminate()
-        #     thread.join()
-
-        # return self.process.returncode
-
 
 def main():
     pg.display.init()
     pg.font.init()
     pg.display.set_caption("Embodied Play")
-    
+
     retro_font = pg.font.SysFont("retrogaming", 48)
     screen = pg.display.set_mode(RES)
     clock = pg.time.Clock()
-    
+
     cam = KinectCam()
     emu = Emulator()
     controller = Controller()
@@ -126,6 +128,8 @@ def main():
     t = 0
 
     centroid_window = list()
+
+    background = pg.transform.scale(pg.image.load("backgrounds/mario_img.jpg"), (RES[0], RES[1]))
 
     while running:
         for event in pg.event.get():
@@ -139,20 +143,19 @@ def main():
             text_rect = text.get_rect(center=(RES[0] / 2, RES[1] / 2))
             screen.blit(text, text_rect)
 
-
         elif cv_img is not None:
             if not started:
                 started = True
                 emu.start("roms/super_mario_all_stars_usa.sfc")
 
+            screen.blit(background, (0, 0))
 
-            screen.fill((0,0,0 ))
             # screen.blit(cvimage_to_pygame(cv_img), (0, 0))
 
-            pg.draw.line(screen, (0, 255, 0), (X_LEFT_THRESH, 0), (X_LEFT_THRESH, 1080))
-            pg.draw.line(
-                screen, (0, 128, 128), (X_RIGHT_THRESH, 0), (X_RIGHT_THRESH, 1080)
-            )
+            # pg.draw.line(screen, (0, 255, 0), (X_LEFT_THRESH, 0), (X_LEFT_THRESH, 1080))
+            # pg.draw.line(
+            #     screen, (0, 128, 128), (X_RIGHT_THRESH, 0), (X_RIGHT_THRESH, 1080)
+            # )
 
             if len(centroids) == 0:
                 if len(centroid_window) != 0:
@@ -169,7 +172,6 @@ def main():
                 y_med = statistics.median(map(lambda x: x[1], centroid_window))
 
                 controller.process_input(x_med, y_med)
-
                 _, jumping = controller.press_buttons()
 
                 right_color = pg.Color(0, 227, 23)
@@ -178,8 +180,10 @@ def main():
 
                 player_color = left_color.lerp(right_color, right_percent)
 
-
                 player_color.a = 255 if jumping else 50
+
+            else:
+                controller.clear_inputs()
 
             if player_contour is not None:
                 pg.draw.polygon(screen, player_color, player_contour)

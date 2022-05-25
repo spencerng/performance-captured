@@ -8,6 +8,7 @@ from pyk4a import Config, PyK4A
 MIN_DIST = 1
 MAX_DIST = 300 * 6
 
+
 def colorize(
     image: np.ndarray,
     clipping_range=(None, None),
