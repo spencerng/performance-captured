@@ -7,7 +7,7 @@ from threading import Thread
 import asyncio
 import os
 
-from kinect import KinectCam
+from kinect2 import KinectCam
 
 # Remember to run with sudo
 
@@ -116,7 +116,7 @@ def main():
     pg.display.set_caption("Embodied Play")
 
     retro_font = pg.font.SysFont("retrogaming", 48)
-    screen = pg.display.set_mode(RES)
+    screen = pg.display.set_mode(RES, pg.RESIZABLE)
     clock = pg.time.Clock()
 
     cam = KinectCam()
