@@ -2,6 +2,10 @@ import cv2 as cv
 import pygame as pg
 import statistics
 import keyboard
+import subprocess as sp
+from threading import Thread
+import asyncio
+import os
 
 from kinect import KinectCam
 
@@ -20,8 +24,8 @@ WINDOW_SIZE = 5
 CROUCH_Y_THRESH = 800 * SCALE
 
 # Threshold in pixels for one keypress of jumping
-JUMP_THRESH = 100 * SCALE
-JUMP_KEY = "z" # x for other game
+JUMP_THRESH = 20 * SCALE
+JUMP_KEY = "x" # z for other game
 
 
 def cvimage_to_pygame(image):
@@ -84,15 +88,37 @@ class Controller:
 
         return self.side_button_press, self.a_state
 
+class Emulator:
+    def __init__(self):
+        self.process = None
+
+    def start(self, game):
+        def target(**kwargs):
+            self.process = sp.run(f"zsnes -zs 0 {game}".split(" "))
+            self.process.communicate()
+
+        thread = Thread(target=target)
+        thread.start()
+
+        # thread.join()
+        # if thread.is_alive():
+        #     self.process.terminate()
+        #     thread.join()
+
+        # return self.process.returncode
 
 
 def main():
     pg.display.init()
     pg.font.init()
+    pg.display.set_caption("Embodied Play")
+    
+    retro_font = pg.font.SysFont("retrogaming", 48)
     screen = pg.display.set_mode(RES)
     clock = pg.time.Clock()
+    
     cam = KinectCam()
-
+    emu = Emulator()
     controller = Controller()
 
     running = True
@@ -106,23 +132,22 @@ def main():
             if event.type == pg.QUIT:
                 running = False
 
-        frame_info = cam.get_frame()
+        cv_img, centroids, player_contour = cam.get_frame()
 
-        if not started:
-            # Draw starting screen here
-            pass
+        if not started and player_contour is None:
+            text = retro_font.render("ENTER SPACE TO BEGIN", True, (255, 255, 255))
+            text_rect = text.get_rect(center=(RES[0] / 2, RES[1] / 2))
+            screen.blit(text, text_rect)
 
 
-        if frame_info is not None:
+        elif cv_img is not None:
             if not started:
                 started = True
-                # TODO: Launch command here
-                cmd = "zsnes -zs 0 ~/Downloads/Super\\ Mario\\ All-Stars\\ \\(USA\\).sfc"
+                emu.start("roms/super_mario_all_stars_usa.sfc")
 
 
-
-            cv_img, centroids, player_contour = frame_info
-            screen.blit(cvimage_to_pygame(cv_img), (0, 0))
+            screen.fill((0,0,0 ))
+            # screen.blit(cvimage_to_pygame(cv_img), (0, 0))
 
             pg.draw.line(screen, (0, 255, 0), (X_LEFT_THRESH, 0), (X_LEFT_THRESH, 1080))
             pg.draw.line(
@@ -160,7 +185,7 @@ def main():
                 pg.draw.polygon(screen, player_color, player_contour)
                 pg.draw.circle(screen, (255, 0, 0), (x_med, y_med), 30)
 
-            pg.display.update()
+        pg.display.update()
 
         # Limit FPS
         clock.tick(30)

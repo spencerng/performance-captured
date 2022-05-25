@@ -6,7 +6,7 @@ import pyk4a
 from pyk4a import Config, PyK4A
 
 MIN_DIST = 1
-MAX_DIST = 300 * 9
+MAX_DIST = 300 * 6
 
 def colorize(
     image: np.ndarray,
@@ -26,9 +26,8 @@ class KinectCam:
     def __init__(self):
         k4a = PyK4A(
             Config(
-                color_resolution=pyk4a.ColorResolution.OFF,
                 camera_fps=pyk4a.FPS.FPS_30,
-                depth_mode=pyk4a.DepthMode.WFOV_UNBINNED,
+                depth_mode=pyk4a.DepthMode.NFOV_UNBINNED,
                 synchronized_images_only=False,
             )
         )
@@ -39,10 +38,10 @@ class KinectCam:
     def get_frame(self):
         capture = self.cam.get_capture()
 
-        if capture.color is None or capture.transformed_depth is None:
-            return None
+        if capture.transformed_depth is None:
+            return None, None, None
 
-        color_img = capture.color
+        # color_img = capture.color
 
         # Based in mm of depth camera
         mask = cv2.inRange(capture.transformed_depth, MIN_DIST, MAX_DIST)
@@ -50,7 +49,7 @@ class KinectCam:
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.erode(mask, kernel)
 
-        masked_img = cv2.bitwise_and(color_img, color_img, mask=mask)
+        # masked_img = cv2.bitwise_and(color_img, color_img, mask=mask)
 
         # n_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
         #     mask, 12, cv2.CV_32S
@@ -83,7 +82,7 @@ class KinectCam:
         if max_contour is not None:
             max_contour = np.vstack(max_contour).squeeze()
 
-        return masked_img[:, :, :3], centroids, max_contour
+        return mask_img, centroids, max_contour
 
     def close(self):
         self.cam.stop()
