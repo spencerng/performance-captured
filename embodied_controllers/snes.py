@@ -116,6 +116,7 @@ class Game:
         path,
         left_color,
         right_color,
+        background_img,
         save_state=0,
         action_key=ACTION_KEY,
         jump_key=JUMP_KEY,
@@ -130,7 +131,7 @@ class Game:
         self.move_thresh = move_thresh
         self.left_color = left_color
         self.right_color = right_color
-
+        self.background = background_img
 
 class Emulator:
     def __init__(self, games):
@@ -142,7 +143,8 @@ class Emulator:
     def rotate_game(self):
         game = self.games[self.index]
         self.index = (self.index + 1) % len(self.games)
-        return self.start_game(game)
+        
+        return game.left_color, game.right_color, game.background
 
     def start_game(self, game):
         if self.process is not None:
@@ -156,4 +158,4 @@ class Emulator:
         thread = Thread(target=target)
         thread.start()
 
-        return game.left_color, game.right_color
+        

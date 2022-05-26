@@ -23,6 +23,7 @@ GAMES = [
         "roms/super_mario_all_stars_usa.sfc",
         pg.Color(227, 0, 42),
         pg.Color(0, 227, 23),
+        "backgrounds/mario_img.jpg",
         save_state=0,
         action_key="s",
         jump_key="x",
@@ -50,9 +51,7 @@ def main():
 
     centroid_window = list()
 
-    background = pg.transform.scale(
-        pg.image.load("backgrounds/mario_img.jpg"), (RES[0], RES[1])
-    )
+    
 
     while running:
         for event in pg.event.get():
@@ -69,7 +68,11 @@ def main():
         elif cv_img is not None:
             if not started:
                 started = True
-                left_color, right_color = emu.rotate_game()
+                left_color, right_color, bg_source = emu.rotate_game()
+
+                background = pg.transform.scale(
+                    pg.image.load(bg_source), (RES[0], RES[1])
+                )
 
             screen.blit(background, (0, 0))
 
@@ -95,7 +98,8 @@ def main():
 
                 player_color = left_color.lerp(right_color, right_percent)
 
-                player_color.a = 255 if jumping else 50
+                # TODO: Add jump/action status text here
+                # player_color.a = 255 if jumping else 50
 
             if player_contour is not None:
                 pg.draw.polygon(screen, player_color, player_contour)
