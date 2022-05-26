@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-import pyk4a
+
 import cv2
 
 import pykinect_azure as pykinect
@@ -10,22 +10,22 @@ MIN_DIST = 1
 MAX_DIST = 300 * 6
 
 
-
-
 class KinectCam:
     def __init__(self):
-        pykinect.initialize_libraries(track_body=True, module_k4abt_path="/usr/lib/x86_64-linux-gnu/libk4a.so.1.4.1")
+        pykinect.initialize_libraries(
+            track_body=True, module_k4abt_path="/usr/lib/x86_64-linux-gnu/libk4a.so.1.3"
+        )
 
         # Modify camera configuration
         device_config = pykinect.default_configuration
         device_config.color_resolution = pykinect.K4A_COLOR_RESOLUTION_OFF
         device_config.depth_mode = pykinect.K4A_DEPTH_MODE_WFOV_2X2BINNED
 
-
         # Start device
         self.cam = pykinect.start_device(config=device_config)
-        self.tracker = pykinect.start_body_tracker(model_type=pykinect.K4ABT_DEFAULT_MODEL)
-
+        self.tracker = pykinect.start_body_tracker(
+            model_type=pykinect.K4ABT_DEFAULT_MODEL
+        )
 
     def get_frame(self):
         capture = self.cam.update()

@@ -6,8 +6,10 @@ import subprocess as sp
 from threading import Thread
 import asyncio
 import os
+import csv
+import math
 
-from kinect2 import KinectCam
+from kinect import KinectCam
 
 # Remember to run with sudo
 
@@ -18,13 +20,15 @@ RES = list(map(int, (1920 * SCALE, 1080 * SCALE)))
 X_WINDOW = 160 * SCALE
 X_LEFT_THRESH = (1920 / 2 - X_WINDOW) * SCALE
 X_RIGHT_THRESH = (1920 / 2 + X_WINDOW) * SCALE
-WINDOW_SIZE = 5
+WINDOW_SIZE = 1
 
 # Minimum centroid position for a crouch position
-CROUCH_Y_THRESH = 800 * SCALE
+CROUCH_Y_THRESH = 850 * SCALE
+
+ACTION_KEY = "s"
 
 # Threshold in pixels for one keypress of jumping
-JUMP_THRESH = 20 * SCALE
+JUMP_THRESH = 40 * SCALE
 JUMP_KEY = "x"  # z for other game
 
 
@@ -38,22 +42,47 @@ class Controller:
         self.side_button_press = None
         self.down_held = False
         self.a_state = False
+        self.action_state = False
         self.prev_y = None
         self.jump_count = 0
 
-    def process_input(self, x_pos, y_pos):
+        self.motion_window = list()
+        self.x_motion_window = list()
+        # self.log = open("log.csv", "w+")
+        # self.writer = csv.DictWriter(self.log, ['mean_y', 'mean_x', 'motion_point_x', 'motion_point_y'])
+
+    def process_input(self, x_pos, y_pos, flow_props):
         if y_pos > CROUCH_Y_THRESH:
             self.down_held = True
             self.side_button_press = None
             self.a_state = False
+            self.action_state = False
             return
 
         self.down_held = False
 
-        if x_pos > X_RIGHT_THRESH:
-            self.side_button_press = "RIGHT"
-        elif x_pos < X_LEFT_THRESH:
-            self.side_button_press = "LEFT"
+        # self.writer.writerow(flow_props)
+
+        vel = math.sqrt(flow_props["mean_x"] ** 2 + flow_props["mean_y"] ** 2)
+
+        self.x_motion_window.append(flow_props["mean_x"])
+        self.motion_window.append(vel)
+
+        if len(self.motion_window) > 3:
+            self.motion_window.pop(0)
+        if len(self.x_motion_window) > 3:
+            self.x_motion_window.pop(0)
+
+        if statistics.mean(self.x_motion_window) >= 0.0015:
+            self.action_state = True
+        else:
+            self.action_state = False
+
+        if statistics.median(self.motion_window) >= 0.0016:
+            if x_pos > X_RIGHT_THRESH:
+                self.side_button_press = "RIGHT"
+            elif x_pos < X_LEFT_THRESH:
+                self.side_button_press = "LEFT"
         else:
             self.side_button_press = None
 
@@ -85,6 +114,11 @@ class Controller:
             keyboard.press(JUMP_KEY)
         else:
             keyboard.release(JUMP_KEY)
+
+        if self.action_state:
+            keyboard.press(ACTION_KEY)
+        else:
+            keyboard.release(ACTION_KEY)
 
         return self.side_button_press, self.a_state
 
@@ -129,14 +163,16 @@ def main():
 
     centroid_window = list()
 
-    background = pg.transform.scale(pg.image.load("backgrounds/mario_img.jpg"), (RES[0], RES[1]))
+    background = pg.transform.scale(
+        pg.image.load("backgrounds/mario_img.jpg"), (RES[0], RES[1])
+    )
 
     while running:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 running = False
 
-        cv_img, centroids, player_contour = cam.get_frame()
+        cv_img, centroids, player_contour, flow_props = cam.get_frame()
 
         if not started and player_contour is None:
             text = retro_font.render("ENTER SPACE TO BEGIN", True, (255, 255, 255))
@@ -150,14 +186,8 @@ def main():
 
             screen.blit(background, (0, 0))
 
-            # screen.blit(cvimage_to_pygame(cv_img), (0, 0))
-
-            # pg.draw.line(screen, (0, 255, 0), (X_LEFT_THRESH, 0), (X_LEFT_THRESH, 1080))
-            # pg.draw.line(
-            #     screen, (0, 128, 128), (X_RIGHT_THRESH, 0), (X_RIGHT_THRESH, 1080)
-            # )
-
             if len(centroids) == 0:
+                controller.clear_inputs()
                 if len(centroid_window) != 0:
                     centroid_window.pop(0)
             else:
@@ -171,7 +201,7 @@ def main():
                 x_med = statistics.median(map(lambda x: x[0], centroid_window))
                 y_med = statistics.median(map(lambda x: x[1], centroid_window))
 
-                controller.process_input(x_med, y_med)
+                controller.process_input(x_med, y_med, flow_props)
                 _, jumping = controller.press_buttons()
 
                 right_color = pg.Color(0, 227, 23)
@@ -181,9 +211,6 @@ def main():
                 player_color = left_color.lerp(right_color, right_percent)
 
                 player_color.a = 255 if jumping else 50
-
-            else:
-                controller.clear_inputs()
 
             if player_contour is not None:
                 pg.draw.polygon(screen, player_color, player_contour)
@@ -195,6 +222,7 @@ def main():
         clock.tick(30)
 
     cam.close()
+    # controller.log.close()
 
 
 if __name__ == "__main__":

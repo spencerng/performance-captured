@@ -12,7 +12,7 @@ MAX_DIST = 300 * 6
 def colorize(
     image: np.ndarray,
     clipping_range=(None, None),
-    colormap: int = cv2.COLORMAP_AUTUMN,
+    colormap: int = cv2.COLORMAP_HSV,
 ) -> np.ndarray:
     if clipping_range[0] or clipping_range[1]:
         img = image.clip(clipping_range[0], clipping_range[1])
@@ -23,10 +23,20 @@ def colorize(
     return img
 
 
+def warp_flow(img, flow):
+    h, w = flow.shape[:2]
+    flow = -flow
+    flow[:, :, 0] += np.arange(w)
+    flow[:, :, 1] += np.arange(h)[:, np.newaxis]
+    res = cv2.remap(img, flow, None, cv2.INTER_LINEAR)
+    return res
+
+
 class KinectCam:
     def __init__(self):
         k4a = PyK4A(
             Config(
+                color_resolution=pyk4a.ColorResolution.OFF,
                 camera_fps=pyk4a.FPS.FPS_30,
                 depth_mode=pyk4a.DepthMode.NFOV_UNBINNED,
                 synchronized_images_only=False,
@@ -36,19 +46,53 @@ class KinectCam:
         k4a.whitebalance = 4510
         self.cam = k4a
 
+        self.optic_flow = cv2.DISOpticalFlow.create(
+            cv2.DISOPTICAL_FLOW_PRESET_ULTRAFAST
+        )
+        self.optic_flow.setUseSpatialPropagation(True)
+        self.prev_flow = None
+        self.prev_frame = None
+
     def get_frame(self):
         capture = self.cam.get_capture()
 
-        if capture.transformed_depth is None:
-            return None, None, None
+        if capture.depth is None:
+            return None, None, None, None
 
-        # color_img = capture.color
+        translation_matrix = np.array(
+            [[1, 0, (1280 - 800) / 2], [0, 1, 0]], dtype=np.float32
+        )
+
+        scale_factor = 720 / capture.depth.shape[1]
+        depth_img = cv2.resize(capture.depth, (800, 720), scale_factor, scale_factor)
+        depth_img = cv2.warpAffine(
+            src=depth_img, M=translation_matrix, dsize=(1280, 720)
+        )
 
         # Based in mm of depth camera
-        mask = cv2.inRange(capture.transformed_depth, MIN_DIST, MAX_DIST)
+        mask = cv2.inRange(depth_img, MIN_DIST, MAX_DIST)
 
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.erode(mask, kernel)
+
+        depth_flow_img = cv2.cvtColor(colorize(depth_img), cv2.COLOR_BGR2GRAY)
+
+        if self.prev_frame is None:
+            self.prev_frame = depth_flow_img
+
+        if self.prev_flow is not None:
+            flow = self.optic_flow.calc(
+                self.prev_frame,
+                depth_flow_img,
+                warp_flow(self.prev_flow, self.prev_flow),
+            )
+        else:
+            flow = self.optic_flow.calc(self.prev_frame, depth_flow_img, None)
+
+        props = self.get_flow_props(flow)
+
+        self.prev_flow = flow
+        self.prev_frame = depth_flow_img
 
         # masked_img = cv2.bitwise_and(color_img, color_img, mask=mask)
 
@@ -83,10 +127,31 @@ class KinectCam:
         if max_contour is not None:
             max_contour = np.vstack(max_contour).squeeze()
 
-        return mask_img, centroids, max_contour
+        return mask_img, centroids, max_contour, props
 
     def close(self):
         self.cam.stop()
+
+    def get_flow_props(self, flow):
+        u, v = cv2.split(flow)
+        mu = cv2.mean(u)
+        mv = cv2.mean(v)
+
+        height = self.prev_frame.shape[0]
+        width = self.prev_frame.shape[1]
+        X = np.fromfunction(lambda y, x: x, (height, width))
+        Y = np.fromfunction(lambda y, x: y, (height, width))
+
+        mag, angle = cv2.cartToPolar(u, v)
+        mx = np.sum(mag * X) / np.sum(mag)
+        my = np.sum(mag * Y) / np.sum(mag)
+
+        return dict(
+            mean_x=mu[0] / self.prev_frame.shape[1],
+            mean_y=mv[0] / self.prev_frame.shape[0],
+            motion_point_x=mx / self.prev_frame.shape[1],
+            motion_point_y=my / self.prev_frame.shape[0],
+        )
 
 
 if __name__ == "__main__":
