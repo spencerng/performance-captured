@@ -1,35 +1,16 @@
 import cv2 as cv
 import pygame as pg
 import statistics
-import keyboard
-import subprocess as sp
-from threading import Thread
-import asyncio
+
 import os
 import csv
 import math
 
 from kinect import KinectCam
+from snes import Emulator, Game
+from config import *
 
 # Remember to run with sudo
-
-SCALE = 1 / 1.5
-
-RES = list(map(int, (1920 * SCALE, 1080 * SCALE)))
-
-X_WINDOW = 160 * SCALE
-X_LEFT_THRESH = (1920 / 2 - X_WINDOW) * SCALE
-X_RIGHT_THRESH = (1920 / 2 + X_WINDOW) * SCALE
-WINDOW_SIZE = 1
-
-# Minimum centroid position for a crouch position
-CROUCH_Y_THRESH = 850 * SCALE
-
-ACTION_KEY = "s"
-
-# Threshold in pixels for one keypress of jumping
-JUMP_THRESH = 40 * SCALE
-JUMP_KEY = "x"  # z for other game
 
 
 def cvimage_to_pygame(image):
@@ -37,112 +18,18 @@ def cvimage_to_pygame(image):
     return pg.image.frombuffer(image.tostring(), image.shape[1::-1], "BGR")
 
 
-class Controller:
-    def __init__(self):
-        self.side_button_press = None
-        self.down_held = False
-        self.a_state = False
-        self.action_state = False
-        self.prev_y = None
-        self.jump_count = 0
-
-        self.motion_window = list()
-        self.x_motion_window = list()
-        # self.log = open("log.csv", "w+")
-        # self.writer = csv.DictWriter(self.log, ['mean_y', 'mean_x', 'motion_point_x', 'motion_point_y'])
-
-    def process_input(self, x_pos, y_pos, flow_props):
-        if y_pos > CROUCH_Y_THRESH:
-            self.down_held = True
-            self.side_button_press = None
-            self.a_state = False
-            self.action_state = False
-            return
-
-        self.down_held = False
-
-        # self.writer.writerow(flow_props)
-
-        vel = math.sqrt(flow_props["mean_x"] ** 2 + flow_props["mean_y"] ** 2)
-
-        self.x_motion_window.append(flow_props["mean_x"])
-        self.motion_window.append(vel)
-
-        if len(self.motion_window) > 3:
-            self.motion_window.pop(0)
-        if len(self.x_motion_window) > 3:
-            self.x_motion_window.pop(0)
-
-        if statistics.mean(self.x_motion_window) >= 0.002:
-            self.action_state = True
-        else:
-            self.action_state = False
-
-        if statistics.median(self.motion_window) >= 0.0013:
-            if x_pos > X_RIGHT_THRESH:
-                self.side_button_press = "RIGHT"
-            elif x_pos < X_LEFT_THRESH:
-                self.side_button_press = "LEFT"
-        else:
-            self.side_button_press = None
-
-        if self.prev_y is not None:
-            if y_pos < self.prev_y and abs(self.prev_y - y_pos) > JUMP_THRESH:
-                self.a_state = True
-                self.jump_count += 1
-            elif y_pos > self.prev_y and abs(self.prev_y - y_pos) > JUMP_THRESH:
-                self.a_state = False
-                self.jump_count = 0
-
-        self.prev_y = y_pos
-
-    def press_buttons(self):
-        if self.down_held:
-            keyboard.press("down")
-        else:
-            keyboard.release("down")
-
-        if self.side_button_press == "RIGHT":
-            keyboard.press("right")
-        elif self.side_button_press == "LEFT":
-            keyboard.press("left")
-        else:
-            keyboard.release("left")
-            keyboard.release("right")
-
-        if self.a_state and self.jump_count < 20:
-            keyboard.press(JUMP_KEY)
-        else:
-            keyboard.release(JUMP_KEY)
-
-        if self.action_state:
-            keyboard.press(ACTION_KEY)
-            
-        else:
-            keyboard.release(ACTION_KEY)
-
-        return self.side_button_press, self.a_state
-
-    def clear_inputs(self):
-        self.side_button_press = None
-        self.a_state = False
-
-        keyboard.release("left")
-        keyboard.release("right")
-        keyboard.release(JUMP_KEY)
-
-
-class Emulator:
-    def __init__(self):
-        self.process = None
-
-    def start(self, game):
-        def target(**kwargs):
-            self.process = sp.run(f"zsnes -zs 0 {game}".split(" "))
-            self.process.communicate()
-
-        thread = Thread(target=target)
-        thread.start()
+GAMES = [
+    Game(
+        "roms/super_mario_all_stars_usa.sfc",
+        pg.Color(227, 0, 42),
+        pg.Color(0, 227, 23),
+        save_state=0,
+        action_key="s",
+        jump_key="x",
+        action_thresh=ACTION_THRESH,
+        move_thresh=MOVE_THRESH,
+    )
+]
 
 
 def main():
@@ -155,8 +42,7 @@ def main():
     clock = pg.time.Clock()
 
     cam = KinectCam()
-    emu = Emulator()
-    controller = Controller()
+    emu = Emulator(GAMES)
 
     running = True
     started = False
@@ -183,12 +69,12 @@ def main():
         elif cv_img is not None:
             if not started:
                 started = True
-                emu.start("roms/super_mario_all_stars_usa.sfc")
+                left_color, right_color = emu.rotate_game()
 
             screen.blit(background, (0, 0))
 
             if len(centroids) == 0:
-                controller.clear_inputs()
+                emu.controller.clear_inputs()
                 if len(centroid_window) != 0:
                     centroid_window.pop(0)
             else:
@@ -202,11 +88,9 @@ def main():
                 x_med = statistics.median(map(lambda x: x[0], centroid_window))
                 y_med = statistics.median(map(lambda x: x[1], centroid_window))
 
-                controller.process_input(x_med, y_med, flow_props)
-                _, jumping = controller.press_buttons()
+                emu.controller.process_input(x_med, y_med, flow_props)
+                _, jumping = emu.controller.press_buttons()
 
-                right_color = pg.Color(0, 227, 23)
-                left_color = pg.Color(227, 0, 42)
                 right_percent = max(0, min(1, (x_med - X_LEFT_THRESH) / (X_WINDOW * 2)))
 
                 player_color = left_color.lerp(right_color, right_percent)
