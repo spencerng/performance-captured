@@ -70,6 +70,9 @@ class Controller:
         self.prev_y = y_pos
 
     def press_buttons(self):
+        if self.game is None:
+            return None, None, None
+
         if self.down_held:
             keyboard.press("down")
         else:
@@ -94,12 +97,15 @@ class Controller:
         else:
             keyboard.release(self.game.action_key)
 
-        return self.side_button_press, self.a_state
+        return self.side_button_press, self.a_state, self.action_state
 
     def clear_inputs(self):
         self.side_button_press = None
         self.a_state = False
         self.action_state = False
+
+        if self.game is None:
+            return
 
         keyboard.release("left")
         keyboard.release("right")
@@ -142,8 +148,11 @@ class Emulator:
 
     def rotate_game(self):
         game = self.games[self.index]
+        self.start_game(game)
+        
         self.index = (self.index + 1) % len(self.games)
         
+
         return game.left_color, game.right_color, game.background
 
     def start_game(self, game):

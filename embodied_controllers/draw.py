@@ -69,7 +69,6 @@ def main():
             if not started:
                 started = True
                 left_color, right_color, bg_source = emu.rotate_game()
-
                 background = pg.transform.scale(
                     pg.image.load(bg_source), (RES[0], RES[1])
                 )
@@ -92,7 +91,7 @@ def main():
                 y_med = statistics.median(map(lambda x: x[1], centroid_window))
 
                 emu.controller.process_input(x_med, y_med, flow_props)
-                _, jumping = emu.controller.press_buttons()
+                _, jumping, action = emu.controller.press_buttons()
 
                 right_percent = max(0, min(1, (x_med - X_LEFT_THRESH) / (X_WINDOW * 2)))
 
