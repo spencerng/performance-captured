@@ -14,6 +14,7 @@ class Controller:
         self.action_state = False
         self.prev_y = None
         self.jump_count = 0
+        self.action_count = 0
         self.game = None
 
         self.motion_window = list()
@@ -48,8 +49,10 @@ class Controller:
 
         if statistics.mean(self.x_motion_window) >= self.game.action_thresh:
             self.action_state = True
+            self.action_count += 1
         else:
             self.action_state = False
+            self.action_count = 0
 
         if statistics.median(self.motion_window) >= self.game.move_thresh:
             if x_pos > X_RIGHT_THRESH:
@@ -91,7 +94,7 @@ class Controller:
         else:
             keyboard.release(self.game.jump_key)
 
-        if self.action_state:
+        if self.action_state and self.action_count < 20:
             keyboard.press(self.game.action_key)
 
         else:
@@ -103,6 +106,8 @@ class Controller:
         self.side_button_press = None
         self.a_state = False
         self.action_state = False
+        self.jump_count = 0
+        self.action_count = 0
 
         if self.game is None:
             return
@@ -139,6 +144,7 @@ class Game:
         self.right_color = right_color
         self.background = background_img
 
+
 class Emulator:
     def __init__(self, games):
         self.process = None
@@ -149,15 +155,14 @@ class Emulator:
     def rotate_game(self):
         game = self.games[self.index]
         self.start_game(game)
-        
+
         self.index = (self.index + 1) % len(self.games)
-        
 
         return game.left_color, game.right_color, game.background
 
     def start_game(self, game):
         if self.process is not None:
-            self.process.kill()
+            self.process.terminate()
 
         self.controller.change_controls(game)
 
@@ -166,5 +171,3 @@ class Emulator:
 
         thread = Thread(target=target)
         thread.start()
-
-        

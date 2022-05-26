@@ -19,7 +19,7 @@ def colorize(
     else:
         img = image.copy()
     img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-    img = cv2.applyColorMap(img, colormap)
+    # img = cv2.applyColorMap(img, colormap)
     return img
 
 
@@ -75,7 +75,7 @@ class KinectCam:
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.erode(mask, kernel)
 
-        depth_flow_img = cv2.cvtColor(colorize(depth_img), cv2.COLOR_BGR2GRAY)
+        depth_flow_img = colorize(depth_img)
 
         if self.prev_frame is None:
             self.prev_frame = depth_flow_img
@@ -116,7 +116,11 @@ class KinectCam:
 
             # Extrapolate center of contour
             m = cv2.moments(max_contour)
-            centroids = [(int(m["m10"] / m["m00"]), int(m["m01"] / m["m00"]))]
+
+            try:
+                centroids = [(int(m["m10"] / m["m00"]), int(m["m01"] / m["m00"]))]
+            except ZeroDivisionError:
+                return None, None, None, None
 
             if max_area < 20000:
                 centroids = []

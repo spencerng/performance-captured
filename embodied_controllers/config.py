@@ -18,3 +18,5 @@ ACTION_THRESH = 0.002
 # Threshold in pixels for one keypress of jumping
 JUMP_THRESH = 40 * SCALE
 JUMP_KEY = "x"  # z for other game
+
+SECONDS_PER_GAME = 30
