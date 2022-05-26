@@ -73,12 +73,12 @@ class Controller:
         if len(self.x_motion_window) > 3:
             self.x_motion_window.pop(0)
 
-        if statistics.mean(self.x_motion_window) >= 0.0015:
+        if statistics.mean(self.x_motion_window) >= 0.002:
             self.action_state = True
         else:
             self.action_state = False
 
-        if statistics.median(self.motion_window) >= 0.0016:
+        if statistics.median(self.motion_window) >= 0.0013:
             if x_pos > X_RIGHT_THRESH:
                 self.side_button_press = "RIGHT"
             elif x_pos < X_LEFT_THRESH:
@@ -117,6 +117,7 @@ class Controller:
 
         if self.action_state:
             keyboard.press(ACTION_KEY)
+            
         else:
             keyboard.release(ACTION_KEY)
 
